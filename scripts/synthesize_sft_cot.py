@@ -50,9 +50,14 @@ def extract_final_answer(completion: str) -> str:
 
 
 def is_valid_cot(completion: str, row: dict[str, Any]) -> bool:
-  if "final answer:" not in completion.lower():
+  match = re.search(r"Final Answer:\s*(.+)", completion, flags=re.IGNORECASE)
+  if not match:
     return False
-  pred = extract_final_answer(completion)
+  reasoning = completion[: match.start()].strip()
+  # Reject completions that skip the reasoning trace (e.g., bare "Final Answer: ...")
+  if len(reasoning.split()) < 5:
+    return False
+  pred = match.group(1).strip().splitlines()[0].strip()
   if not pred:
     return False
   if row["regime"] == "abstention_cot":
@@ -106,6 +111,7 @@ def main() -> None:
       model_id, quantization_config=bnb_config, device_map="auto"
   )
   model.eval()
+  model.generation_config.max_length = None
   terminators = [
       tokenizer.eos_token_id,
       tokenizer.convert_tokens_to_ids("<|eot_id|>"),
@@ -136,15 +142,21 @@ def main() -> None:
     accepted_completion = None
     for attempt in range(args.max_attempts):
       temp = 0.0 if attempt == 0 else 0.35
+      gen_kwargs: dict[str, Any] = {
+          "max_new_tokens": 160,
+          "do_sample": temp > 0,
+          "eos_token_id": terminators,
+          "pad_token_id": tokenizer.eos_token_id,
+      }
+      if temp > 0:
+        gen_kwargs["temperature"] = temp
+      else:
+        gen_kwargs["temperature"] = None
+        gen_kwargs["top_p"] = None
+
       with torch.no_grad():
-        gen_ids = model.generate(
-            **inputs,
-            max_new_tokens=160,
-            do_sample=(temp > 0),
-            temperature=temp if temp > 0 else None,
-            eos_token_id=terminators,
-            pad_token_id=tokenizer.eos_token_id,
-        )
+        gen_ids = model.generate(**inputs, **gen_kwargs)
+
       new_toks = gen_ids[0][inputs["input_ids"].shape[-1] :]
       completion = tokenizer.decode(new_toks, skip_special_tokens=True).strip()
       if is_valid_cot(completion, row):

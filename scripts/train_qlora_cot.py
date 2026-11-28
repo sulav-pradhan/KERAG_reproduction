@@ -97,7 +97,7 @@ def main() -> None:
       gradient_accumulation_steps=args.grad_accum,
       learning_rate=args.lr,
       lr_scheduler_type="cosine",
-      warmup_ratio=0.05,
+      warmup_steps=0.05,
       logging_steps=10,
       eval_strategy="steps",
       eval_steps=25,
