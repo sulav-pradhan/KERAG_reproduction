@@ -99,16 +99,13 @@ def main() -> None:
 
   model_id = "meta-llama/Meta-Llama-3-8B-Instruct"
   use_bf16 = torch.cuda.is_available() and torch.cuda.get_device_capability()[0] >= 8
-  bnb_config = BitsAndBytesConfig(
-      load_in_4bit=True,
-      bnb_4bit_compute_dtype=torch.bfloat16 if use_bf16 else torch.float16,
-      bnb_4bit_quant_type="nf4",
-  )
   tokenizer = AutoTokenizer.from_pretrained(model_id)
   if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
   model = AutoModelForCausalLM.from_pretrained(
-      model_id, quantization_config=bnb_config, device_map="auto"
+      model_id,
+      dtype=torch.bfloat16 if use_bf16 else torch.float16,
+      device_map="auto",
   )
   model.eval()
   model.generation_config.max_length = None
