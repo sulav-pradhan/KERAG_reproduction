@@ -1,3 +1,17 @@
 
 data/
 *.zip
+# Local Python & IDE
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+folder_structure.txt
+
+# Large datasets, caches, and LoRA checkpoints (keep on Drive)
+data/*
+!data/sft/
+data/sft/*
+!data/sft/test_blocklist.json
+checkpoints/
+*.pkl
